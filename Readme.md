@@ -26,4 +26,9 @@
 
  > <a href="https://www.figma.com/design/2xSwAb4gbhyQSCLihy8lIc/Online-Course-E-Learning-Educational-Website-UI-Template-Design-in-Light-Theme---FREE-Editable----Community-?node-id=21-335&t=bWhSq15TyI5huisr-0" target="_blank">Ссылка на макет онлайн курсов</a> (Макет онлайн курсов)
 
-### Полезные ветки, которые пригодятся в процессе обучения
+ > <a href="https://www.figma.com/design/R3bMDutykWgBN9KfwcozGf/дайвинг?node-id=0-1&p=f&t=hyWUO5I9NZ5O8ccH-0" target="_blank">Ссылка на макет "Дайвинг"</a> (Макет онлайн-магазина для дайвинга)
+
+### Семантика для сайтов
+<img src="./images/semantic.jpg" alt="семантика сайта" />
+
+## Полезные ветки, которые пригодятся в процессе обучения
