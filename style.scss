@@ -1,0 +1,24 @@
+$main-color: #ff9c1a;
+$main-width: 1440px;
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    width: $main-width;
+    background: $main-color;
+    padding: 42px 136px 30px 156px;
+    margin: 0 auto;
+    display: flex;
+
+    &-logo {
+        margin-right: 90px;
+    }
+
+    &-wrp {
+        display: flex !important;
+        justify-content: space-between;
+    }
+}

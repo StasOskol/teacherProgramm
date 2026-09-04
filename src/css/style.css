@@ -1,0 +1,19 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+.header {
+  width: 1440px;
+  background: #ff9c1a;
+  padding: 42px 136px 30px 156px;
+  margin: 0 auto;
+  display: flex;
+}
+.header-logo {
+  margin-right: 90px;
+}
+.header-wrp {
+  display: flex !important;
+  justify-content: space-between;
+}/*# sourceMappingURL=style.css.map */
