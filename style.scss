@@ -1,5 +1,6 @@
 $main-color: #ff9c1a;
 $main-width: 1440px;
+$color-link: #884900;
 
 * {
     margin: 0;
@@ -20,5 +21,41 @@ $main-width: 1440px;
     &-wrp {
         display: flex !important;
         justify-content: space-between;
+    }
+
+    &-filter{
+        width: 800px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    &-tel {
+        font-weight: 500;
+        font-size: 18px;
+        line-height: 100%;
+        color: $color-link;
+        align-self: center;
+        text-decoration: none;
+    }
+
+    &-search {
+        position: relative;
+
+        &-inp {
+            padding: 12px 21px;
+            border: none;
+            border-radius: 26px;
+            width: 325px;
+            margin-top: 10px;
+        }
+
+        &-tap {
+            position: absolute;
+            left: 330px;
+            top: 17px;
+            z-index: 2;
+            background: transparent;
+            border: none;
+        }
     }
 }

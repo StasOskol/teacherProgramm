@@ -16,4 +16,35 @@
 .header-wrp {
   display: flex !important;
   justify-content: space-between;
+}
+.header-filter {
+  width: 800px;
+  display: flex;
+  justify-content: space-between;
+}
+.header-tel {
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 100%;
+  color: #884900;
+  align-self: center;
+  text-decoration: none;
+}
+.header-search {
+  position: relative;
+}
+.header-search-inp {
+  padding: 12px 21px;
+  border: none;
+  border-radius: 26px;
+  width: 325px;
+  margin-top: 10px;
+}
+.header-search-tap {
+  position: absolute;
+  left: 330px;
+  top: 17px;
+  z-index: 2;
+  background: transparent;
+  border: none;
 }/*# sourceMappingURL=style.css.map */
