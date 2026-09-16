@@ -86,9 +86,11 @@
 public:
  void MoveForward(float Value);
  void MoveRight(float Value);
+```
 
  В файле `MyHero.cpp`
  1. Найди функцию SetupPlayerInputComponent и замени её на:
+```cpp
 void AMyHero::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
