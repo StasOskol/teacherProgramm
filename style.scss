@@ -2,6 +2,8 @@ $main-color: #ff9c1a;
 $main-width: 1440px;
 $color-link: #884900;
 $color-ligth: #db4e66;
+$color-text: #fafaf9;
+$social: #90c1bf;
 
 * {
     margin: 0;
@@ -93,11 +95,10 @@ $color-ligth: #db4e66;
         }
     }
 
-
     &-navigate {
         width: 1440px;
         margin: 0 auto;
-        padding: 0 136px 156px;
+        padding: 0 136px 0 156px;
         display: flex;
         justify-content: end;
         background-color: #fff;
@@ -109,10 +110,81 @@ $color-ligth: #db4e66;
             list-style-type: none;
 
             &-li {
-
                 &-item {
                     padding: 20px 30px;
                 }
+            }
+        }
+    }
+}
+
+.box {
+    width: 1440px;
+    margin: 0 auto;
+    background: linear-gradient(rgba(0, 0, 0, 0.54), rgba(0, 0, 0, 0.54)), url("./image/pngs/main-box.png");
+    padding: 235px 136px 40px 156px;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+    &-title {
+        width: 751px;
+        font-weight: 500;
+        font-size: 50px;
+        color: $color-text;
+        text-align: center;
+        margin: 0 auto 16px;
+    }
+
+    &-description {
+        font-weight: 400;
+        font-size: 16px;
+        color: $color-text;
+        text-align: center;
+        margin-bottom: 43px;
+    }
+
+    &-aside {
+        display: flex;
+        justify-content: center;
+
+        &-btn {
+            padding: 18px 92px;
+            box-sizing: border-box;
+            border-radius: 14px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 16px;
+            text-transform: uppercase;
+            color: #fff;
+            background: $color-ligth;
+            margin-bottom: 68px;
+        }
+    }
+
+    &-social {
+        display: flex;
+        justify-content: end;
+
+        &-link {
+            text-decoration: none;
+            background: $social;
+            border-radius: 12px;
+            padding: 5px 8px;
+            box-sizing: border-box;
+            margin-left: 24px;
+
+            &:nth-child(1) {
+                margin-left: 0;
+
+                & > .box-social-link-icon {
+                    margin-top: 3px;
+                }
+            }
+
+            &:nth-child(2) > .box-social-link-icon {
+                margin-top: 2px;
+                margin-left: 1px;
             }
         }
     }
