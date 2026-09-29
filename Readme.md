@@ -4,7 +4,8 @@
 
 1. [Создать проект на Unreal Engine 5.7 с персонажем, управляемым с клавиатуры и мыши](#Создать-проект-на-Unreal-Engine-5.7-с-персонажем,-управляемым-с-клавиатуры-и-мыши)
 2. [Настройка прыжка персонажа по нажатию клавиши](#Настройка-прыжка-персонажа-по-нажатию-клавиши)
-3. [Вопросы](#Вопросы)
+3. [Приседание персонажа на ctrl](#Приседание-персонажа-на-ctrl)
+4. [Вопросы](#Вопросы)
 
 ---
 
@@ -335,8 +336,192 @@ void AMyHero::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 2. **Проверяй** настройки ввода в **Настройки проекта → Движок → Ввод**.
 3. **Сохраняй** файлы перед компиляцией (`Ctrl+S`).
 
+---
+
+# Приседание персонажа на ctrl
+
+## 🎯 Цель
+Настроить приседание персонажа по нажатию клавиши **Left Ctrl**.
+
+---
+
+## 🔹 ЭТАП 1: НАСТРОЙКА ВВОДА
+
+1. Открой **Unreal Editor**.
+2. Перейди: **Правка → Настройки проекта → Движок → Ввод**.
+3. В разделе **"Назначения действий" (Action Mappings)** нажми **"Добавить"**.
+4. Создай **два** действия:
+
+| Имя действия | Клавиша |
+|--------------|---------|
+| **Crouch** | `Left Ctrl` (Левый Ctrl) |
+| **UnCrouch** | `Left Ctrl` (Левый Ctrl) |
+
+> ⚠️ Имена `Crouch` и `UnCrouch` должны быть написаны **точно** так — с большой буквы, без пробелов.
+
+**Зачем два действия на одну клавишу:**
+- `Crouch` — срабатывает при **нажатии** (персонаж приседает).
+- `UnCrouch` — срабатывает при **отпускании** (персонаж встаёт).
+
+5. Закрой настройки.
+
+---
+
+## 🔹 ЭТАП 2: ДОБАВЛЕНИЕ ФУНКЦИЙ В ЗАГОЛОВОЧНЫЙ ФАЙЛ
+
+### Файл `MyHero.h`
+
+После `GENERATED_BODY()` добавь объявления двух новых функций:
+
+```cpp
+public:
+    void MoveForward(float Value);
+    void MoveRight(float Value);
+
+    // 👇 ДЛЯ ПРИСЕДАНИЯ
+    void StartCrouch();
+    void StopCrouch();
+```
+
+> ⚠️ **Важно:** Функции `Crouch()` и `UnCrouch()` в классе `ACharacter` **требуют параметр `bool`**, а `BindAction` не может его передать. Поэтому мы создаём **свои функции-обёртки** без параметров.
+
+---
+
+## 🔹 ЭТАП 3: НАПИСАНИЕ КОДА
+
+### Файл `MyHero.cpp`
+
+**1. В функции `SetupPlayerInputComponent`** добавь две строки для приседания:
+
+```cpp
+void AMyHero::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+    // Движение
+    PlayerInputComponent->BindAxis("MoveForward", this, &AMyHero::MoveForward);
+    PlayerInputComponent->BindAxis("MoveRight", this, &AMyHero::MoveRight);
+    PlayerInputComponent->BindAxis("Turn", this, &AMyHero::AddControllerYawInput);
+    PlayerInputComponent->BindAxis("LookUp", this, &AMyHero::AddControllerPitchInput);
+
+    // Прыжок
+    PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AMyHero::Jump);
+    PlayerInputComponent->BindAction("Jump", IE_Released, this, &AMyHero::StopJumping);
+
+    // 👇 ПРИСЕДАНИЕ
+    PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AMyHero::StartCrouch);
+    PlayerInputComponent->BindAction("UnCrouch", IE_Released, this, &AMyHero::StopCrouch);
+}
+```
+
+**2. В конец файла** добавь реализации новых функций:
+
+```cpp
+void AMyHero::StartCrouch()
+{
+    Crouch();
+}
+
+void AMyHero::StopCrouch()
+{
+    UnCrouch();
+}
+```
+
+**Что делают эти функции:**
+
+| Функция | Что вызывает | Когда срабатывает |
+|---------|--------------|-------------------|
+| `StartCrouch()` | `Crouch()` — встроенная функция `ACharacter` | При **нажатии** Left Ctrl |
+| `StopCrouch()` | `UnCrouch()` — встроенная функция `ACharacter` | При **отпускании** Left Ctrl |
+
+> ⚠️ Функции `Crouch()` и `UnCrouch()` **уже встроены** в класс `ACharacter`. Писать их самому не нужно — мы просто вызываем их из своих функций-обёрток.
+
+---
+
+## 🔹 ЭТАП 4: ВКЛЮЧЕНИЕ ПРИСЕДАНИЯ В CHARACTER MOVEMENT
+
+По умолчанию приседание может быть отключено. Проверь:
+
+1. Открой **BP_MyHero** (дважды кликни).
+2. В левой панели **"Компоненты"** выбери **CharacterMovement**.
+3. В правой панели **"Подробности"** найди раздел **"Character Movement (General Settings)"**.
+4. Убедись, что **"Can Crouch"** = **✅ (галочка стоит)**.
+5. Если нет — поставь галочку.
+
+### Настройка высоты и скорости приседания
+
+В том же разделе **CharacterMovement** найди **"Character Movement: Crouching"**:
+
+| Параметр | Значение по умолчанию | Что делает |
+|----------|----------------------|------------|
+| **Crouched Half Height** | 40 | Высота персонажа в приседе (чем меньше — тем ниже) |
+| **Can Crouch** | ✅ | Разрешает приседание |
+| **Max Walk Speed Crouched** | 300 | Скорость передвижения в приседе |
+
+**Рекомендуемые значения:**
+- **Crouched Half Height** → `40` (стандарт)
+- **Max Walk Speed Crouched** → `300` (медленнее, чем обычная ходьба)
+
+6. **Скомпилируй** → **Сохрани**.
+
+---
+
+## 🔹 ЭТАП 5: КОМПИЛЯЦИЯ (ОБЯЗАТЕЛЬНО!)
+
+После изменения кода **обязательно** пересобери проект:
+
+1. Сохрани файл (`Ctrl+S`).
+2. Закрой **VS Code**.
+3. Закрой **Unreal Editor**.
+4. Удали папки в корне проекта:
+   - `Binaries/`
+   - `Intermediate/`
+   - `Saved/`
+5. Найди файл `RunAndSurvive.uproject` и **дважды кликни** по нему.
+6. Если появится окно **"The following modules are missing..."** — нажми **"Да"**.
+7. Дождись компиляции.
+
+---
+
+## 🔹 ЭТАП 6: ТЕСТ
+
+1. Нажми **"Играть"** (зелёный треугольник).
+2. Нажми **Left Ctrl** — персонаж должен присесть.
+3. Отпусти **Left Ctrl** — персонаж должен встать.
+4. Попробуй **двигаться в приседе** — скорость должна быть ниже.
+
+---
+
+## ⚠️ ЧАСТЫЕ ОШИБКИ
+
+| Ошибка | Причина | Решение |
+|--------|---------|---------|
+| `error C2665: BindAction: ни одна перегруженная функция...` | `Crouch()` требует параметр `bool` | Используй функции-обёртки `StartCrouch()` и `StopCrouch()` (Этап 2-3) |
+| Приседание не работает | Забыл строки `BindAction` в коде | Добавь обе строки (Этап 3) |
+| Приседание не работает | Имя действия не `Crouch` / `UnCrouch` | Проверь настройки ввода (Этап 1) |
+| Приседание не работает | `Can Crouch` выключен | Включи в CharacterMovement (Этап 4) |
+| Персонаж не встаёт | Не привязан `UnCrouch` | Добавь строку `BindAction("UnCrouch", IE_Released, ...)` |
+| Персонаж проваливается под пол | `Crouched Half Height` слишком маленький | Увеличь до 40-50 |
+
+---
+
+## ✅ ИТОГ
+
+После выполнения всех этапов:
+- ✅ Персонаж **приседает** по нажатию **Left Ctrl**.
+- ✅ Персонаж **встаёт** при отпускании **Left Ctrl**.
+- ✅ Скорость в приседе **ниже**, чем при обычной ходьбе.
+- ✅ Приседание можно **настроить** через CharacterMovement.
+
+---
+
+
 # Вопросы
 1. Что за папки `Binaries/`, `Intermediate/`, `Saved/`?
 * Binaries/	Готовый код, который запускает движок
 * Intermediate/	Временные файлы сборки: .obj, .gen.cpp, кэш	Промежуточные файлы, созданные при компиляции
 * Saved/	Логи, настройки пользователя, кэш, автосохранения	Данные, которые Unreal сохраняет для тебя
+
+2. Команда для пересборки проекта
+"C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" RunAndSurviveEditor Win64 Development -Project="C:\Users\Liza\Desktop\Git\RunAndSurvive\RunAndSurvive\RunAndSurvive.uproject" -WaitMutex
