@@ -5,7 +5,8 @@
 1. [Создать проект на Unreal Engine 5.7 с персонажем, управляемым с клавиатуры и мыши](#Создать-проект-на-Unreal-Engine-5.7-с-персонажем,-управляемым-с-клавиатуры-и-мыши)
 2. [Настройка прыжка персонажа по нажатию клавиши](#Настройка-прыжка-персонажа-по-нажатию-клавиши)
 3. [Приседание персонажа на ctrl](#Приседание-персонажа-на-ctrl)
-4. [Вопросы](#Вопросы)
+4. [Плавное приседание персонажа](#Плавное-приседание-персонажа)
+5. [Вопросы](#Вопросы)
 
 ---
 
@@ -516,6 +517,275 @@ void AMyHero::StopCrouch()
 
 ---
 
+# Плавное приседание персонажа
+
+## 🎯 Цель
+Настроить **плавное** (а не мгновенное) приседание персонажа по нажатию **Left Ctrl**, с изменением высоты капсулы и скорости передвижения.
+
+---
+
+## 🧠 Как это работает
+
+| Обычное приседание (`Crouch()`) | Плавное приседание (наш способ) |
+|--------------------------------|---------------------------------|
+| Высота меняется **мгновенно** | Высота меняется **плавно** через `FMath::FInterpTo` |
+| Камера «прыгает» | Камера плавно опускается |
+| Скорость меняется мгновенно | Скорость меняется в `StartCrouch` / `StopCrouch` |
+
+**Механика:**
+1. При нажатии Left Ctrl мы задаём **цель** (`TargetCapsuleHalfHeight`).
+2. Каждый кадр в `Tick()` высота капсулы **плавно интерполируется** к цели.
+3. `FMath::FInterpTo` делает движение плавным и независимым от FPS.
+
+---
+
+## 🔹 ЭТАП 1: НАСТРОЙКА ВВОДА
+
+1. Открой **Unreal Editor**.
+2. Перейди: **Правка → Настройки проекта → Движок → Ввод**.
+3. В разделе **"Назначения действий" (Action Mappings)** нажми **"Добавить"**.
+4. Создай **два** действия:
+
+| Имя действия | Клавиша |
+|--------------|---------|
+| **Crouch** | `Left Ctrl` |
+| **UnCrouch** | `Left Ctrl` |
+
+> ⚠️ Имена должны быть написаны **точно** так — с большой буквы, без пробелов.
+
+**Зачем два действия на одну клавишу:**
+- `Crouch` — срабатывает при **нажатии** → персонаж приседает.
+- `UnCrouch` — срабатывает при **отпускании** → персонаж встаёт.
+
+5. Закрой настройки.
+
+---
+
+## 🔹 ЭТАП 2: ДОБАВЛЕНИЕ ПЕРЕМЕННЫХ И ФУНКЦИЙ В `MyHero.h`
+
+Открой `MyHero.h` и добавь:
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "MyHero.generated.h"
+
+UCLASS()
+class RUNANDSURVIVE_API AMyHero : public ACharacter
+{
+    GENERATED_BODY()
+
+public:
+    AMyHero();
+
+protected:
+    virtual void BeginPlay() override;
+
+public:
+    virtual void Tick(float DeltaTime) override;
+    virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+    void MoveForward(float Value);
+    void MoveRight(float Value);
+
+    // 👇 ДЛЯ ПРИСЕДАНИЯ
+    void StartCrouch();
+    void StopCrouch();
+
+private:
+    // 👇 ПЕРЕМЕННЫЕ ДЛЯ ПЛАВНОГО ПРИСЕДАНИЯ
+    float StandingCapsuleHalfHeight;   // Высота стоя
+    float CrouchingCapsuleHalfHeight;  // Высота в приседе
+    float TargetCapsuleHalfHeight;     // Куда стремимся
+};
+```
+
+**Зачем нужны переменные:**
+
+| Переменная | Что хранит |
+|------------|-----------|
+| `StandingCapsuleHalfHeight` | Высоту капсулы **стоя** (запоминается в `BeginPlay`) |
+| `CrouchingCapsuleHalfHeight` | Высоту капсулы **в приседе** (вычисляется как половина от стоя) |
+| `TargetCapsuleHalfHeight` | **Цель** — куда интерполируем каждый кадр |
+
+---
+
+## 🔹 ЭТАП 3: НАПИСАНИЕ КОДА В `MyHero.cpp`
+
+### ⚠️ КРИТИЧЕСКИ ВАЖНО: Два инклуда!
+
+В **самый верх** файла `MyHero.cpp` добавь **два** `#include`:
+
+```cpp
+#include "MyHero.h"
+#include "Components/CapsuleComponent.h"                 // 👈 для UCapsuleComponent
+#include "GameFramework/CharacterMovementComponent.h"    // 👈 для UCharacterMovementComponent
+```
+
+> ⚠️ **Без этих инклудов компиляция упадёт** с ошибкой `error C2027: использование неопределенного типа "UCapsuleComponent"`.
+
+---
+
+### Добавляем/изменяем код `MyHero.cpp`
+
+```cpp
+// Fill out your copyright notice in the Description page of Project Settings.
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
+void AMyHero::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // Запоминаем стандартную высоту капсулы (стоя)
+    StandingCapsuleHalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+
+    // Высота в приседе — половина от высоты стоя
+    CrouchingCapsuleHalfHeight = StandingCapsuleHalfHeight * 0.5f;
+
+    // Изначально мы стоим
+    TargetCapsuleHalfHeight = StandingCapsuleHalfHeight;
+}
+
+void AMyHero::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    // Текущая высота капсулы
+    float CurrentHalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+
+    // Плавно интерполируем к целевой высоте
+    // 8.0f — скорость интерполяции (чем больше, тем быстрее приседает)
+    float NewHalfHeight = FMath::FInterpTo(CurrentHalfHeight, TargetCapsuleHalfHeight, DeltaTime, 8.0f);
+
+    // Применяем новую высоту
+    GetCapsuleComponent()->SetCapsuleHalfHeight(NewHalfHeight);
+}
+
+void AMyHero::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+    PlayerInputComponent->BindAxis("MoveForward", this, &AMyHero::MoveForward);
+    PlayerInputComponent->BindAxis("MoveRight", this, &AMyHero::MoveRight);
+    PlayerInputComponent->BindAxis("Turn", this, &AMyHero::AddControllerYawInput);
+    PlayerInputComponent->BindAxis("LookUp", this, &AMyHero::AddControllerPitchInput);
+
+    // Прыжок
+    PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AMyHero::Jump);
+    PlayerInputComponent->BindAction("Jump", IE_Released, this, &AMyHero::StopJumping);
+
+    // Приседание
+    PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AMyHero::StartCrouch);
+    PlayerInputComponent->BindAction("UnCrouch", IE_Released, this, &AMyHero::StopCrouch);
+}
+
+void AMyHero::StartCrouch()
+{
+    // Задаём цель — высота в приседе
+    TargetCapsuleHalfHeight = CrouchingCapsuleHalfHeight;
+
+    // Меняем скорость передвижения
+    GetCharacterMovement()->MaxWalkSpeed = 300.0f;
+
+    // Сообщаем движку, что мы в приседе (для проверки препятствий над головой)
+    GetCharacterMovement()->bWantsToCrouch = true;
+}
+
+void AMyHero::StopCrouch()
+{
+    // Задаём цель — высота стоя
+    TargetCapsuleHalfHeight = StandingCapsuleHalfHeight;
+
+    // Возвращаем скорость
+    GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+
+    // Сообщаем движку, что мы встаём
+    GetCharacterMovement()->bWantsToCrouch = false;
+}
+```
+
+---
+
+## 🔹 ЭТАП 4: ОТКЛЮЧЕНИЕ `Can Crouch` В BLUEPRINT
+
+> ⚠️ **ВАЖНО:** Так как мы управляем высотой **вручную**, стандартное приседание движка нужно **отключить**, иначе он будет конфликтовать с нашим `Tick()`.
+
+1. Открой **BP_MyHero** (дважды кликни).
+2. В левой панели **"Компоненты"** выбери **CharacterMovement**.
+3. В **"Подробностях"** найди **"Can Crouch"** → **сними галочку** ❌.
+4. **Скомпилируй** → **Сохрани**.
+
+---
+
+## 🔹 ЭТАП 5: НАСТРОЙКА СКОРОСТИ ПРИСЕДАНИЯ
+
+В `MyHero.cpp` в `Tick()` найди строку:
+
+```cpp
+float NewHalfHeight = FMath::FInterpTo(CurrentHalfHeight, TargetCapsuleHalfHeight, DeltaTime, 8.0f);
+```
+
+Последний параметр `8.0f` — **скорость интерполяции**:
+
+| Значение | Скорость приседания |
+|----------|---------------------|
+| `3.0f` | Очень медленно и плавно |
+| `5.0f` | Медленно |
+| `8.0f` | **Оптимально (по умолчанию)** |
+| `15.0f` | Быстро, но всё ещё плавно |
+| `30.0f` | Почти мгновенно |
+
+---
+
+## 🔹 ЭТАП 6: КОМПИЛЯЦИЯ (ОБЯЗАТЕЛЬНО!)
+
+1. Сохрани файлы (`Ctrl+S`).
+2. Закрой **VS Code**.
+3. Закрой **Unreal Editor**.
+4. Удали папки в корне проекта:
+   - `Binaries/`
+   - `Intermediate/`
+   - `Saved/`
+5. Найди `RunAndSurvive.uproject` → **дважды кликни**.
+6. Если появится окно **"The following modules are missing..."** — нажми **"Да"**.
+7. Дождись компиляции.
+
+---
+
+## 🔹 ЭТАП 7: ТЕСТ
+
+1. Нажми **"Играть"**.
+2. Нажми **Left Ctrl** — персонаж **плавно** приседает.
+3. Отпусти **Left Ctrl** — персонаж **плавно** встаёт.
+4. Попробуй **двигаться в приседе** — скорость снижена до `300`.
+
+---
+
+## ⚠️ ЧАСТЫЕ ОШИБКИ
+
+| Ошибка | Причина | Решение |
+|--------|---------|---------|
+| Приседание мгновенное, не плавное | `Can Crouch` включён в CharacterMovement | Сними галочку `Can Crouch` (Этап 4) |
+| Камера «дёргается» | SpringArm не интерполируется | Убедись, что `Use Pawn Control Rotation` = ✅ на SpringArm |
+| Приседание не работает | Имя действия не `Crouch` / `UnCrouch` | Проверь настройки ввода (Этап 1) |
+| Персонаж проваливается под пол | `CrouchingCapsuleHalfHeight` слишком маленький | Проверь, что `CrouchingCapsuleHalfHeight = StandingCapsuleHalfHeight * 0.5f` |
+
+---
+
+## ✅ ИТОГ
+
+После выполнения всех этапов:
+- ✅ Персонаж **плавно** приседает по нажатию **Left Ctrl**.
+- ✅ Персонаж **плавно** встаёт при отпускании.
+- ✅ Скорость в приседе снижена (`300` вместо `600`).
+- ✅ Плавность настраивается через параметр `FInterpTo` в `Tick()`.
+- ✅ Приседание работает **без** стандартного `Crouch()` движка.
+
+---
+
 
 # Вопросы
 1. Что за папки `Binaries/`, `Intermediate/`, `Saved/`?
@@ -524,4 +794,4 @@ void AMyHero::StopCrouch()
 * Saved/	Логи, настройки пользователя, кэш, автосохранения	Данные, которые Unreal сохраняет для тебя
 
 2. Команда для пересборки проекта
-"C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" RunAndSurviveEditor Win64 Development -Project="C:\Users\Liza\Desktop\Git\RunAndSurvive\RunAndSurvive\RunAndSurvive.uproject" -WaitMutex
+"C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" RunAndSurviveEditor Win64 Development -Project="C:\Users\Liza\Desktop\Git\RunAndSurvive\RunAndSurvive.uproject" -WaitMutex
