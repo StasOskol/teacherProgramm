@@ -7,7 +7,8 @@
 3. [Приседание персонажа на ctrl](#Приседание-персонажа-на-ctrl)
 4. [Плавное приседание персонажа](#Плавное-приседание-персонажа)
 5. [Спринт персонажа](#Спринт-персонажа)
-6. [Вопросы](#Вопросы)
+6. [Структура C++ файлов и параметры персонажа в отдельном файле](#Структура-C-файлов-и-параметры-персонажа-в-отдельном-файле)
+7. [Вопросы](#Вопросы)
 
 ---
 
@@ -928,6 +929,199 @@ void AMyHero::StopSprint()
 - ✅ **Спринт не работает в приседе** (защита через `bIsCrouching`).
 - ✅ Все три режима движения работают: **ходьба** (`600`), **спринт** (`900`), **присед** (`300`).
 
+---
+
+# Структура C++ файлов и параметры персонажа в отдельном файле
+
+## 🎯 Цель
+Навести порядок в C++ файлах проекта (разложить по подпапкам) и вынести все числовые параметры персонажа в отдельную структуру `FHeroStats`, чтобы менять баланс без перекомпиляции.
+
+## 🔹 ЭТАП 1: Создание папки `Hero`
+
+1. Открой проводник:
+   ```
+   C:\Users\Liza\Desktop\Git\RunAndSurvive\RunAndSurvive\Source\RunAndSurvive\
+   ```
+2. Создай папку **`Hero`**.
+3. Перемести в неё:
+   - `MyHero.h`
+   - `MyHero.cpp`
+
+**Структура:**
+```
+Source/RunAndSurvive/
+├── Hero/                       ← ПОДПАПКА
+│   ├── MyHero.h
+│   ├── MyHero.cpp
+│   └── HeroStats.h
+├── RunAndSurvive.Build.cs
+├── RunAndSurvive.cpp
+└── RunAndSurvive.h
+```
+
+---
+
+## 🔹 ЭТАП 2: Настройка `RunAndSurvive.Build.cs`
+
+Открой `Source/RunAndSurvive/RunAndSurvive.Build.cs` и добавь **после** `PrivateDependencyModuleNames`:
+
+```csharp
+// 👇 ДОБАВЬ ЭТИ СТРОКИ
+PublicIncludePaths.AddRange(new string[] {
+    "Hero"
+});
+
+PrivateIncludePaths.AddRange(new string[] {
+    "Hero"
+});
+```
+
+## 🔹 ЭТАП 3: Создание `Hero/HeroStats.h`
+
+1. В папке `Hero/` создай файл **`HeroStats.h`**.
+2. Открой его в VS Code и вставь:
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "HeroStats.generated.h"
+
+USTRUCT(BlueprintType)
+struct FHeroStats
+{
+    GENERATED_BODY()
+
+    // Скорости передвижения
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float WalkSpeed = 600.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float SprintSpeed = 900.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float CrouchSpeed = 300.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float JumpVelocity = 600.0f;
+
+    // Здоровье
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+    float MaxHealth = 100.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+    float CurrentHealth = 100.0f;
+
+    // Прокачка
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
+    int32 Level = 1;
+};
+```
+
+## 🔹 ЭТАП 4: Подключение `FHeroStats` к `MyHero`
+
+### В `Hero/MyHero.h`
+
+```cpp
+public:
+    AMyHero();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hero Stats")
+    FHeroStats Stats;
+
+    // ... остальные функции
+```
+
+### В `Hero/MyHero.cpp`
+
+```cpp
+void AMyHero::BeginPlay()
+{
+    Super::BeginPlay();
+
+    StandingCapsuleHalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+    CrouchingCapsuleHalfHeight = StandingCapsuleHalfHeight * 0.5f;
+    TargetCapsuleHalfHeight = StandingCapsuleHalfHeight;
+    bIsCrouching = false;
+
+    GetCharacterMovement()->MaxWalkSpeed = Stats.WalkSpeed;   // 👈 из Stats
+}
+
+void AMyHero::StartCrouch()
+{
+    TargetCapsuleHalfHeight = CrouchingCapsuleHalfHeight;
+    GetCharacterMovement()->MaxWalkSpeed = Stats.CrouchSpeed; // 👈 из Stats
+    GetCharacterMovement()->bWantsToCrouch = true;
+    bIsCrouching = true;
+}
+
+void AMyHero::StopCrouch()
+{
+    TargetCapsuleHalfHeight = StandingCapsuleHalfHeight;
+    GetCharacterMovement()->MaxWalkSpeed = Stats.WalkSpeed;   // 👈 из Stats
+    GetCharacterMovement()->bWantsToCrouch = false;
+    bIsCrouching = false;
+}
+
+void AMyHero::StartSprint()
+{
+    if (bIsCrouching) return;
+    GetCharacterMovement()->MaxWalkSpeed = Stats.SprintSpeed; // 👈 из Stats
+}
+
+void AMyHero::StopSprint()
+{
+    if (bIsCrouching)
+    {
+        GetCharacterMovement()->MaxWalkSpeed = Stats.CrouchSpeed;
+        return;
+    }
+    GetCharacterMovement()->MaxWalkSpeed = Stats.WalkSpeed;   // 👈 из Stats
+}
+```
+
+---
+
+## 🔹 ЭТАП 5: Пересборка
+
+1. Сохрани всё (`Ctrl+S`).
+2. Закрой VS Code.
+3. Закрой Unreal Editor.
+4. Удали папки:
+   - `Binaries/`
+   - `Intermediate/`
+   - `Saved/`
+5. Открой `RunAndSurvive.uproject` → дождись компиляции.
+
+---
+
+## 🔹 ЭТАП 6: Проверка
+
+1. Открой `BP_MyHero`.
+2. В **"Подробностях"** появится раздел **"Hero Stats"**:
+   - Walk Speed = 600
+   - Sprint Speed = 900
+   - Crouch Speed = 300
+   - Jump Velocity = 600
+   - Max Health = 100
+   - Current Health = 100
+   - Level = 1
+3. Измени **Sprint Speed** на `1500`.
+4. **Скомпилируй** → **Сохрани**.
+5. Запусти игру → нажми **Left Shift** → скорость стала выше.
+
+---
+
+## ✅ ИТОГ
+
+- ✅ C++ файлы **в подпапке `Hero/`** — порядок.
+- ✅ `FHeroStats` **хранит все параметры** персонажа.
+- ✅ Параметры **видны в редакторе** (`BP_MyHero → Hero Stats`).
+- ✅ Легко **менять баланс** без перекомпиляции.
+
+---
+
+
 # Вопросы
 1. Что за папки `Binaries/`, `Intermediate/`, `Saved/`?
 * Binaries/	Готовый код, который запускает движок
@@ -935,4 +1129,6 @@ void AMyHero::StopSprint()
 * Saved/	Логи, настройки пользователя, кэш, автосохранения	Данные, которые Unreal сохраняет для тебя
 
 2. Команда для пересборки проекта
+```cmd
 "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" RunAndSurviveEditor Win64 Development -Project="C:\Users\Liza\Desktop\Git\RunAndSurvive\RunAndSurvive.uproject" -WaitMutex
+```
