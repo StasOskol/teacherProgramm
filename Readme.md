@@ -8,6 +8,7 @@
 4. [Плавное приседание персонажа](#Плавное-приседание-персонажа)
 5. [Спринт персонажа](#Спринт-персонажа)
 6. [Структура C++ файлов и параметры персонажа в отдельном файле](#Структура-C-файлов-и-параметры-персонажа-в-отдельном-файле)
+7. [Создание HUD](#Создание-HUD)
 7. [Вопросы](#Вопросы)
 
 ---
@@ -1121,6 +1122,213 @@ void AMyHero::StopSprint()
 
 ---
 
+# Создание HUD
+
+## 🎯 Цель
+Создать игровой интерфейс (HUD), который отображает здоровье, уровень и патроны. Данные берутся из структуры `FHeroStats` (C++), а визуальная часть делается через `Widget Blueprint` (UMG).
+---
+
+## 🧠 Архитектура
+1. **`FHeroStats`** (в `HeroStats.h`) — хранит данные (здоровье, патроны).
+2. **`UMyHUDWidget`** (C++ класс) — логика обновления текста (связывает данные и визуал).
+3. **`WBP_HUD`** (Widget Blueprint) — визуальная часть (текст на экране).
+4. **`BP_MyHero`** — создает HUD при старте и передает в него данные.
+
+---
+
+## 🔹 ЭТАП 1: Подготовка данных (`HeroStats.h`)
+
+В файле `Hero/HeroStats.h` добавь переменные для патронов (если их еще нет):
+
+```cpp
+    // 👇 ПАТРОНЫ
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+    int32 CurrentAmmo = 0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+    int32 MaxAmmo = 90;
+```
+*Значения `30` и `90` — это дефолтные значения при старте игры. Их можно будет менять в `BP_MyHero`.*
+
+---
+
+## 🔹 ЭТАП 2: Создание C++ класса HUD (`MyHUDWidget`)
+
+1. В редакторе: **Инструменты → Программирование → Новый класс C++...**
+2. Родительский класс: **`UserWidget`** (ищи через вкладку **"Все классы"**).
+3. Имя: **`MyHUDWidget`**.
+4. Создай.
+
+**В `MyHUDWidget.h`:**
+
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Blueprint/UserWidget.h"
+#include "MyHUDWidget.generated.h"
+
+UCLASS()
+class RUNANDSURVIVE_API UMyHUDWidget : public UUserWidget
+{
+    GENERATED_BODY()
+
+public:
+    // Функция для обновления текста
+    UFUNCTION(BlueprintCallable)
+    void UpdateStats(float CurrentHealth, float MaxHealth, int32 Level, int32 CurrentAmmo, int32 MaxAmmo);
+
+protected:
+    // 👇 BindWidget жестко привязывает переменные к элементам в WBP_HUD по имени
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* HealthText;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* LevelText;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* AmmoText;
+};
+```
+
+**В `MyHUDWidget.cpp`:**
+
+```cpp
+#include "MyHUDWidget.h"
+#include "Components/TextBlock.h"
+
+void UMyHUDWidget::UpdateStats(float CurrentHealth, float MaxHealth, int32 Level, int32 CurrentAmmo, int32 MaxAmmo)
+{
+    if (HealthText)
+    {
+        FString HealthStr = FString::Printf(TEXT("HP: %.0f / %.0f"), CurrentHealth, MaxHealth);
+        HealthText->SetText(FText::FromString(HealthStr));
+    }
+    if (LevelText)
+    {
+        FString LevelStr = FString::Printf(TEXT("Level: %d"), Level);
+        LevelText->SetText(FText::FromString(LevelStr));
+    }
+    if (AmmoText)
+    {
+        FString AmmoStr = FString::Printf(TEXT("Ammo: %d / %d"), CurrentAmmo, MaxAmmo);
+        AmmoText->SetText(FText::FromString(AmmoStr));
+    }
+}
+```
+
+---
+
+## 🔹 ЭТАП 3: Создание визуального `WBP_HUD`
+
+1. В **Панели ресурсов** (Content Browser) нажми **Правый клик → Пользовательский интерфейс → Схема создания виджетов** (Widget Blueprint).
+2. Назови **`WBP_HUD`**.
+3. Открой его.
+
+**Добавление элементов:**
+1. В «Палитре» найди **`Canvas Panel`** и перетащи на холст. *(Это контейнер, без него текст не добавится!)*
+2. Перетащи внутрь `Canvas Panel` три элемента **`Text`**.
+3. В панели **«Иерархия»** переименуй их (строго без пробелов, с большой буквы):
+   - Первый → **`HealthText`**
+   - Второй → **`LevelText`**
+   - Третий → **`AmmoText`**
+
+**Настройка внешнего вида:**
+1. Выдели `HealthText`. В панели **«Сведения»** (Details) в поле `Text` впиши `HP: 100 / 100`.
+2. Настрой шрифт, цвет и **«Положение»** (Position: X, Y), чтобы текст не наслаивался друг на друга.
+3. Повтори для `LevelText` (`Level: 1`) и `AmmoText` (`Ammo: 30 / 90`).
+
+**Связывание с C++:**
+1. Нажми **«Настройки класса»** (Class Settings) на верхней панели.
+2. В поле **«Родительский класс»** (Parent Class) выбери **`MyHUDWidget`**.
+3. Нажми **«Компилировать»** (Compile) и **«Сохранить»** (Save).
+
+---
+
+## 🔹 ЭТАП 4: Вызов HUD из персонажа (`MyHero`)
+
+**В `Hero/MyHero.h`** добавь переменные:
+
+```cpp
+public:
+    // ... AMyHero(); FHeroStats Stats;
+
+    // 👇 Класс HUD для создания
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<class UMyHUDWidget> HUDWidgetClass;
+
+private:
+    // 👇 Указатель на созданный HUD
+    class UMyHUDWidget* HUDWidget;
+    // ... остальные переменные
+```
+
+**В `Hero/MyHero.cpp`:**
+
+1. Добавь инклуд в начало файла:
+```cpp
+#include "MyHUDWidget.h"
+```
+
+2. В функции `BeginPlay()` добавь создание HUD (после установки скорости):
+```cpp
+void AMyHero::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // ... (код приседаний и скорости) ...
+    GetCharacterMovement()->MaxWalkSpeed = Stats.WalkSpeed;
+
+    // 👇 СОЗДАЕМ HUD
+    if (HUDWidgetClass)
+    {
+        HUDWidget = CreateWidget<UMyHUDWidget>(GetWorld(), HUDWidgetClass);
+        if (HUDWidget)
+        {
+            HUDWidget->AddToViewport();
+            // Передаем стартовые данные
+            HUDWidget->UpdateStats(Stats.CurrentHealth, Stats.MaxHealth, Stats.Level, Stats.CurrentAmmo, Stats.MaxAmmo);
+        }
+    }
+}
+```
+
+---
+
+## 🔹 ЭТАП 5: Назначение HUD в Blueprint персонажа
+
+1. Сохрани код, закрой VS Code и Unreal Editor.
+2. Удали папки `Binaries`, `Intermediate`, `Saved`.
+3. Открой `.uproject` и дождись компиляции.
+4. Открой **`BP_MyHero`**.
+5. В панели **«Компоненты»** (слева) выдели **самую верхнюю строку** — **`BP_MyHero (Этот объект)`**.
+6. В правой панели **«Сведения»** (Details) прокрути вниз и найди раздел **`UI`**.
+7. В поле **`HUD Widget Class`** выбери **`WBP_HUD`**.
+8. Нажми **«Компилировать»** и **«Сохранить»**.
+
+---
+
+## ⚠️ ЧАСТЫЕ ОШИБКИ И НЮАНСЫ
+
+| Проблема | Причина | Решение |
+|----------|---------|---------|
+| Ошибка `BindWidget: Unable to find property` | Имена Text в «Иерархии» не совпадают с C++ | Переименуй тексты **точь-в-точь** как в `.h` (`HealthText`, `LevelText`, `AmmoText`). |
+| «У виджета не может быть дочерних элементов» | Текст перетащен в корень `WBP_HUD` | Сначала добавь `Canvas Panel`, а тексты кидай **внутрь** него. |
+| Текст не двигается или не добавляется | Текст вложен в другой текст | Следи за иерархией: `Canvas Panel -> Text`. |
+| HUD не появляется в игре | Не назначен `HUD Widget Class` | Выдели `BP_MyHero (Этот объект)` в «Компонентах», найди раздел `UI` и укажи `WBP_HUD`. |
+| Ошибка `Cannot open include file: 'MyHUDWidget.h'` | Неправильный путь `#include` | Если файлы в папке `Hero/`, используй `#include "Hero/MyHUDWidget.h"` (или настрой пути в `.Build.cs`). |
+| Не видно раздела `UI` в `BP_MyHero` | Код не скомпилирован | Пересобери проект (удали `Binaries`, `Intermediate`, `Saved`). |
+
+---
+
+## ✅ ИТОГ
+
+После всех шагов:
+- ✅ HUD отображает **HP**, **Level** и **Ammo**.
+- ✅ Данные берутся из `FHeroStats`.
+- ✅ При изменении значений в `BP_MyHero` (например, `Current Health = 50`) HUD обновится при старте.
+- ✅ Готово к добавлению оружия, урона и прокачки (достаточно будет вызывать `HUDWidget->UpdateStats(...)`).
 
 # Вопросы
 1. Что за папки `Binaries/`, `Intermediate/`, `Saved/`?
