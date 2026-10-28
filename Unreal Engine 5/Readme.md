@@ -1582,6 +1582,44 @@ void AMyHero::BeginPlay()
 - ✅ При закрытии персонаж **возвращает свою скорость** (с учетом прокачки, спринта, приседа).
 - ✅ Клавиша F **продолжает работать**, потому что мы не трогаем `Input Mode`.
 
+# 🛠️ Исправление: Блокировка вращения камеры в меню сундука
+
+## 🔹 ШАГ 1: Правка ветки False (Открытие меню)
+
+В `BP_LootChest`, в функции `Interact`, в ветке **False** (где создается меню):
+
+1. Найди узел **`Get Player Controller`** (он уже есть в схеме).
+2. От него вызови **`Set Ignore Look Input`**.
+3. Поставь галочку **True**.
+4. Соедини белый провод от **`Set Input Mode UI Only`** к **`Set Ignore Look Input`**.
+
+**Схема:** `Set Input Mode UI Only` ➔ `Set Ignore Look Input` (True).
+
+---
+
+## 🔹 ШАГ 2: Правка ветки True (Закрытие меню)
+
+В той же функции `Interact`, в ветке **True** (где меню закрывается):
+
+1. Найди узел **`Get Player Controller`**.
+2. От него вызови **`Set Ignore Look Input`**.
+3. Сними галочку (**False**).
+4. Соедини белый провод от **`Set Input Mode Game Only`** к **`Set Ignore Look Input`**.
+
+**Схема:** `Set Input Mode Game Only` ➔ `Set Ignore Look Input` (False).
+
+---
+
+Схема:
+<img src='./images/BP_LootChest-no-camers.png' alt='BP_LootChest-no-camers'/>
+
+## ✅ ИТОГ
+
+- ✅ При открытии меню камера **полностью перестает реагировать на мышь**, даже если зажать кнопку.
+- ✅ Луч (Line Trace) больше не уходит с сундука.
+- ✅ Меню корректно закрывается повторным нажатием F.
+- ✅ При закрытии меню управление камерой возвращается.
+
 
 # Вопросы
 1. Что за папки `Binaries/`, `Intermediate/`, `Saved/`?
